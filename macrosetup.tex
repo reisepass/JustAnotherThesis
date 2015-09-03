@@ -1,0 +1,70 @@
+%% Custom commands
+%% ===============
+
+%% Special characters for number sets, e.g. real or complex numbers.
+\newcommand{\C}{\mathbb{C}}
+\newcommand{\K}{\mathbb{K}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Q}{\mathbb{Q}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\X}{\mathbb{X}}
+
+%% Fixed/scaling delimiter examples (see mathtools documentation)
+\DeclarePairedDelimiter\abs{\lvert}{\rvert}
+\DeclarePairedDelimiter\norm{\lVert}{\rVert}
+
+%% Also set the alternate phi as default.
+%\let\oldphi\phi
+%\renewcommand{\phi}{\ensuremath{\varphi}}
+
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+
+%% Variables for my common symbols 
+
+\newcommand{\error}{\upxi}
+\newcommand{\xSpace}{\mathcal{X}}
+\newcommand{\ySpace}{\mathcal{Y}_i}
+\newcommand{\ySpaceNoI}{\mathcal{Y}}
+\newcommand{\yVec}{\yVect}
+\newcommand{\yVect}{\bm{y}}
+\newcommand{\wv}{\weightVec}
+\newcommand{\weightVec}{\weightVect}
+\newcommand{\weightVect}{\bm{w}} %TODO this should be bold lowercase W but for some reason \boldsymbol cuases an error, maybe its cause of the BM package
+\newcommand{\weightsmall}{\mathcal{w}}
+\newcommand{\setOfVertecies} {\nu}
+\newcommand{\setOfEdges}{\zeta}
+\newcommand{\inputArgs}[1]{"#1"}
+\newcommand{\jointFeatureMapAlone}{\psi}
+\newcommand{\jointFeatureMap}{\jointFeatureMapAlone_i(\yVect)}
+\newcommand{\crfFeatMap}{\kappa}
+\newcommand{\crfFeatMapBig}{\mathcal{F}}
+\newcommand{\dataDepFn}{\varpi}
+\newcommand{\codeInLine}[1]{$#1$}
+\newcommand{\lossFn}{L_i}
+\newcommand{\bigH}{\oracleobj}
+\newcommand{\oracleobj}{H}
+\newcommand{\shloss}{\widetilde{\oracleobj_i}(w)}
+\newcommand{\shlossexp}{\max_{y \in \ySpace} \lossFn(\yVec)-\langle \weightVec, \jointFeatureMap \rangle }
+\newcommand{\oracleexp}{\lossFn(\yVec)-\langle \weightVec, \jointFeatureMap \rangle}
+\newcommand{\dualObj}{f(\alpha) := \min_{\alpha \in \mathbb{R}^m, \alpha\geq0} \frac{\lambda}{2}||\dualA\alpha||^2-\dualb^T\alpha}
+\newcommand{\dualObjConst}{\sum_{y\in\ySpace} \alpha_i(y)=1 \forall i \in [n]}
+\newcommand{\dualA}{A}
+\newcommand{\dualAlpha}{\alphaVec}
+\newcommand{\alphaVec}{\bm{\alpha}}
+\newcommand{\dualAexp}{\frac{1}{\lambda n} \jointFeatureMap \in \mathbb{R}^d | i \in [n], y \in \ySpace}
+\newcommand{\dualObjLimitLambda}{ \lim_{\lambda \to +\infty} (\dualObj) = \min_{\alpha \in \mathbb{R}^m, \alpha\geq0} -\dualb^T\alpha}
+\newcommand{\dualb}{b}
+\newcommand{\dualbexp}{(\frac{1}{2}\lossFn(y))_{i\in[n],y\in \ySpace}}
+\newcommand{\dualParamSpace}{\mathcal{M}}
+
+
+
+
+\newcommand*{\figuretitle}[1]{%
+    {\centering%   <--------  will only affect the title because of the grouping (by the
+    \textbf{#1}%              braces before \centering and behind \medskip). If you remove
+    \par\medskip}%            these braces the whole body of a {figure} env will be centered.
+}

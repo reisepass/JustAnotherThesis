@@ -1,0 +1,250 @@
+\chapter{Theory}
+
+
+The notation we use here is a modified version of the notation used in \cite{lucchi2012structured} and \cite{lacoste2012block}. While we will reproduce the relevant information here \cite{lacoste2012block} is the original publication of the BCFW solver and \cite{slicPaper} is the original publication of the SLIC super pixel algorithm. 
+\section{Recall Support Vector Machines}
+The traditional binary Support Vector Machine problem can be stated as finding the best weight vector $w$ to correctly classify all multidimensional data points $x \in \mathcal{X}$ based on their features $\Phi(x)$
+\begin{align}
+y(x)=w^T\Phi(x)
+\end{align} If $t_n \in\{-1,1\}$ is the n'th true label for $x_n$ we can formulate the maximum margin optimization problem as :
+\begin{align}
+\argmax_w\{ \frac{1}{||w||} min_n [t_n (w^T\Phi(x_n))] \}  
+\end{align}
+Considering that re-scaling $w$ does not effect the distance of any point to the decision plane we can scale  them such that $t_n(w^T\Phi(x_x))\geq 1$ holds for all points.  We can drop the $min_n$ term from the optimization objective by adding the $t_n(w^T\Phi(x_x))\geq 1 \forall x_x$ constraint because due to the $w$ rescaling there will always be at least one point for which the above statement is an equality. By this transformation we arrive at the canonical primal definition: 
+  \begin{align}
+  \argmin_w \frac{1}{2} ||w||^2 \quad S.T. \\ 
+  t_n(w^T\Phi(x_x))\geq 1 
+  \end{align} 
+ 
+  \par When contrasting SVM methods with the basic Perceptron one can recognize that a Perceptron can find many different decision boundaries between the classes depending on what the ordering of that dataset was or what $w$ was initialized. The SVM has jointly optimizes the misclassification error and the margin of the support vectors. For a detailed comparison see \cite{meyer2003support}. It is intuitive to think that choosing the decision boundary which has the largest margin would minimize the generalization error, and it has indeed been shown theoretically that maximizing the margin minimizes bounds on the generalization error \cite{boser1992training}.
+  
+\par Alternatively to solving the primal formulation directly we can solve it in the dual. The dual formulation allows us to use kernel function; and later we will see for our large dimensional problem the dual parameters can be very sparse which provides computational advantages. To construct the Dual problem we differentiating the Lagrangian and substitute back into $L(w,a)$.
+  \begin{align}
+L(w,a) = \frac{1}{2}||w||^2 - \sum^{N}_{n=1} a_n { t_n ( w^T \Phi(x_n)) -1 }  \quad  S.T. \\
+ w =\sum^{N}_{n=1} a_n t_n \Phi(x_n) \\ 
+ 0=\sum^{N}_{n=1} a_n t_n 
+  \end{align}
+  
+  Which leads us to the canonical dual representation:
+  
+  \begin{align}
+ \argmax_a \sum^N_{n=1} a_n -\frac{1}{2} \sum^{N}_{n=1} \sum^{N}_{m=1} a_n a_m t_n t_m \Phi(x_n)^T\Phi(x_m)  \quad  S.T. \label{eq:dualsvm}\\
+ a_n \geq 0, \forall_n\\
+ \sum^{N}_{n=1} a_n t_n =0
+  \end{align}
+  
+\subsection{Duality Gap}
+\par The dual solution is not necessarily exactly equivalent to the primal solution as the Lagrangian is only equal in the limit. The difference between the primal and dual is called the duality gap. It is possible for the gap to be zero, referred to as strong duality, but in most cases it is sufficient to compute the duality gap every couple of rounds to see if it is below a certain threshold in order to decide to stop iterating the solver. 
+\subsection{SVM with High Class count}
+When using an svm for a problem with more than 2 classes one must train several classifiers with one pivot class. If we have classes [A,B,C] then we train two SVMs [ $SVM_{A vs B}(x_n)$,  $SVM_{A vs C}(x_n)$ ] predict labels by choosing the label which got the best score vs A or we predict A if both SVMs labelled it as A. This method of classification is computationally inefficient especially for problems with large numbers of classes. Image segmentation is a problem with a massive class space because we do not simply have the $R$ number of labels which a pixel could take but we have the combination of labels over the entire image, hence the number of possible labels for a single image is $R^n$ where n is the number of pixels. 
+
+\section{Structured Support Vector Machine } \label{ssvm}
+Structured Prediction is the category of machine learning techniques designed to work with data that is more complex than a real valued outcome variable. The data will be expressed in a model which describes the relations between subsets of the data. In our image segmentation problem the output domain $y \in \ySpaceNoI(x)$ is the set of all possible label configurations for a given image x. And $x \in \xSpace$ is the set of all possible images. Structured Support Vector machines generalize the maximum margin approach to this kind of data. The standard approach for constructing a SSVM is to define a joint feature mapping $\Phi : \xSpace \times \ySpaceNoI \rightarrow \mathbb{R}^d $ which can include a measure of distance between two $y$ and also between different images $x$. On this joint feature space we again learn a linear function to the output, in contrast to the SVM, predicting requires maximizing over the possible labels $ \argmax_{y \in \ySpace} \lossFn(\yVec)-\langle \weightVec, \jointFeatureMap \rangle  $. With a training dataset $D = { (x_i,y_i)}^n_{i=1}$, we estimate $w$ by minimizing : 
+
+ \begin{align}
+ \min_{\weightVect,\error} \frac{\lambda}{2}||\weightVect||^2 + \frac{1}{2}\sum^n_{i=1}\error_i \label{optimizationFunc}  \quad  \text{S.T.}\\
+\langle \weightVect,\jointFeatureMap \rangle \geq L(\yVect_i,\yVect) - \error_i \quad \forall i, \forall \yVect \in \ySpaceNoI(x_i) 
+\end{align}
+
+$ \textnormal{where} \quad \jointFeatureMap := \theta(x_i,y_i) - \theta(x_i,y) \textnormal{,} \quad L_i(y) := L(y_i,y) $ and $L(y_i,y)$ is the distance between the true label configuration and a possible other label configuration, typically we use the hamming distance here. The slack variable $\error_i$ holds the accepted error in this soft-margin formulation and $\lambda$ is the regularization parameter. 
+
+This first formulation still has exponential number of constrains due to $\ySpaceNoI(x_i) $, but we can alleviate this issue by replacing the $\sum_{i} | \ySpace |$ linear constraints with $n$ piecewise-linear constraints as defined by this hinge-loss: 
+\begin{align} \label{eq:maxOracle}
+\shloss := \max_{y \in \ySpace} \lossFn(\yVect) - \langle \weightVec, \jointFeatureMap \rangle
+\end{align}
+\begin{align}
+ \min_{\weightVect} \frac{\lambda}{2}||\weightVect||^2 + \frac{1}{n}\sum^n_{i=1} \shloss \label{optimizationFunc} \quad  \text{S.T.}\\
+  \error_i \geq \shloss
+\end{align}
+
+The calculation of $\shloss$ is also referred to as the "max oracle", it is typically implemented with computational tricks to avoid a lot of the complexity of performing the $\max$ directly. In the following sections we assume an efficient solver for $\shloss$ exists. 
+
+\subsection{Dual formulation SSVM}
+
+There are $m:=\sum_i |\ySpace|$ variables which could become support vectors. In this formulation we use $\alpha_i(\yVect)$ as the dual variable associated with the training example $i$ and $\yVect \in \ySpace$ as the potential output. Solving the Lagrangian for the SSVM similar to \ref{eq:dualsvm} results in the following dual form:
+\begin{align}\label{eq:ssvmDual}
+\min_{\alpha \in \mathbb{R}, \alpha \geq 0 } f(\alpha) := \frac{\lambda}{2} ||\dualA \alpha||^2 - \dualb^T \alpha   \quad  \text{S.T.}
+\end{align}
+\begin{align}
+\sum_{\yVect \in \ySpace} \alpha_i(\yVect) = 1 \quad \forall i \in [n]
+\end{align}
+where $\dualA \in  \mathbb{R}^{d \times m}$ is the column matrix $\dualA := \{ \frac{1}{\lambda n} \jointFeatureMap \in \mathbb{R}^{d} | i \in [n], \yVect \in \ySpace \}$ and  $\dualb := ( \frac{1}{n}\lossFn(\yVect))_{i \in [n], \yVect \in \ySpace}$. In this formulation we will have a very sparce representation in the dual variable vector $\alpha$ which is advantageous for sub-gradient optimization. With the Karush-Kuhn-Tucker conditions we can map between the dual and primal forms $\weightVec = \dualA \alpha = \sum_{i,\yVect \in \ySpace} \alpha_i(\yVect) \frac{\jointFeatureMap}{\lambda n}$. Computing the gradient of \ref{eq:ssvmDual} we find $\nabla f(\alpha) = \lambda \dualA^T \dualA \alpha - \dualb = \lambda \dualA^T \weightVec - \dualb$. Aditionally note that the domain of $f(\alpha)$ is the product of $n$ proabability simplicies, $\dualParamSpace := \Delta_{| \ySpaceNoI_1|} \times ... \times \Delta_{|\ySpaceNoI_n|}$.
+It will show later that the sparsity in $\alpha$ and the ability to easily move back to the primal will be crucial for solving high dimensional problems. 
+
+\section{Quadratic Programming Solvers}
+\subsection{Frank-Wolfe optimization}
+The Frank-Wolfe algorithm, originally published in 1956 \cite{frank1956algorithm}, is a quadratic programming solver with the same wide applications as typical sub-gradient methods as it only requires optimizing linear functions over the feasible set $\dualParamSpace$. It is applicable to any convex optimization problem where the feasible set $\dualParamSpace$ is compact and the objective $f$ is convex and continuously differentiable. The basics steps of the algorithm start with choosing a feasible search corner $\bm{s}$ by minimizing the linearisation of $f$ (using the current $\alpha$) constrained on being inside  $\dualParamSpace$. 
+\begin{figure}[H]
+  \centering
+ \includegraphics[width=0.5\textwidth]{images/algo-3d-fw-alpha-figure.pdf}
+  \caption{ } 
+  \label{fig:frankwolfe}
+\end{figure} 
+All following steps are a convex combination of a new $\bm{s}$ and the previous iteration with some step-size $\gamma$.  This formulation is advantageous for problems when $\alpha$ is in high dimensions, as the current $\alpha$ can be expressed in terms of the the initial $\alpha^{(0)}$ and all  $\bm{s}$ corners selected in the iterations leading up to the current round. An $\alpha$ that can be written in this form can be stored in memory as a sparse object and hence never needs to allocate memory, without this property an $\alpha$ for image segmentation would never fit into memory. Additionally Frank-Wolfe has the advantage that we can compute the duality gap for free, because $f$ is convex its minimization over $\dualParamSpace$ is a lower bound on the value of the globally optimal $f(\dualAlpha^*)$. Being able to compute the duality gap allows us to monitor the progress of the algorithm over time and also allows us to choose a theoretically sounds stopping criteria $f(\dualAlpha) - f(\dualAlpha^*) \leq \epsilon$. It has also been shown \cite{dunn1978conditional} that the algorithm converges to a $\epsilon$-approximate solution within $\mathcal{O}(\frac{1}{\epsilon})$
+
+\begin{samepage}
+  \rule{\textwidth}{2pt}
+\begin{algorithm}[H]\label{algo:bcfw}
+     Let $\alpha^{(0)} \in \dualParamSpace$\;
+     \For{$k = 0 $ ... $ K$}{
+    	Compute $\bm{s} := \argmin_{\bm{s}^\prime \in \dualParamSpace} \langle \bm{s}^\prime,\nabla f(\bm{\alpha^{(k)}} \rangle$ \;
+        Let $\gamma := \frac{2}{k + 2}$ or optimize $\gamma$ by line-search
+        update $\bm{\alpha}^{(k+1)} := (1 - \gamma) \bm{\alpha}^{(k)} + \gamma \bm{s}$
+     }
+     \caption{ Frank-Wolfe on a Compact Domain  }
+  \end{algorithm}
+\hrulefill
+\end{samepage}
+
+\subsection{Block Coordinate Frank-Wolfe} \label{bcfw}
+
+A disadvantage of the Frank-Wolfe algorithm described above is that it requires $n$ calls to the maximization oracle for SSVMs. The Block-Coordinate Frank-Wolfe algorithm \cite{lacoste2012block} improves this to only requiring one call to the maximization oracle in the context of SSVMs. The method described \cite{lacoste2012block} and reproduced here in Algorithm \ref{algo:bcfw} can be applied to any constraint optimization problem of the form 
+\begin{align}
+\min_{\alpha \in \dualParamSpace^1 \times ... \times \dualParamSpace^n} f(\alpha)
+\end{align}
+having a Cartesian product over $n \geq 1$ blocks as the domain $\dualParamSpace = \dualParamSpace^1 \times ... \times \dualParamSpace^n \subseteq \mathbb{R}^m $. The reduction in oracle calls comes from this structure in $\dualParamSpace$. This structure allows  to perform cheap update steps affecting only one variable block $\dualParamSpace^{(i)}$ instead of optimizing the entire problem simultaneously. We assume that each factor is convex and compact $\dualParamSpace^{(i)} \subseteq \mathbb{R}^{m_i} $, with $m = \sum^n_{i=1} m_i$. In the following $\dualAlpha_i \in \mathbb{R}^{m_i}$ for the $i$-th block of coordinates of a vector $\dualAlpha \in \mathbb{R}^m$. The iterative root of Algorithm \ref{algo:bcfw} chooses one block uniformly at random and leaves the other blocks unchanged. If we only had one partitioning i.e. $n=1$ then Algorithm \ref{algo:bcfw} is equivalent to the original Frank-Wolfe algorithm. 
+
+\begin{samepage}
+  \rule{\textwidth}{2pt}
+  \begin{algorithm}[H]\label{algo:bcfw}
+     Let $\alpha^{(0)} \in \dualParamSpace^{(1)} \times ... \times \dualParamSpace^{(n)}  $\;
+     \For{$k = 0 $ ... $ K$}{
+      Pick $i$ at random in \{1, ... ,n \}\;
+      Find $\bm{s}_{(i)} := \argmin_{\bm{s}_{(i)}^\prime\in \dualParamSpace} \langle \bm{s}_{(i)} ^\prime\nabla_{(i)}f(\bm{\alpha}^{(k)} \rangle$ \;
+      Let $\gamma := \frac{2 n}{k + 2n}$ or optimize $\gamma$ by line-search\;
+      Update $\bm{\alpha}_{(i)}^{k+1} := \bm{\alpha}^{(k)}_{(i)} + \gamma (\bm{s}_{(i)} - \alphaVec_{(i)}^{(k)} )$\;
+     }
+     \caption{ Block-Coordinate Frank-Wolfe Algorithm on product Domain }
+  \end{algorithm}
+  \hrulefill
+\end{samepage}
+
+Another advantage of BCFW over other methods like Stochastic Gradient Descent is that we can compute our optimal step-size $\gamma$ in closed form. 
+
+\subsubsection{BCFW for the SSVM}
+For our image segmentation applications we used the BCFW algorithm \ref{algo:bcfw_ssvm} for SSVMs such that we only need to maintain the primal $w$. The equivalence between Algorithm \ref{algo:bcfw} and Algorithm \ref{algo:bcfw_ssvm} rests on the  relations : $\wv_s = \dualA\bm{s}_{[i]}$ and $\ell_s = \dualb^T\bm{s}_{[i]}$ in the primal update. Where $\bm{s}_{[i]}$ is a zero-padded version of $\bm{s}_{(i)} := \bm{e}^{\yVect_i^*} \in \dualParamSpace$ such that $\bm{s}_{[i]} \in \dualParamSpace$. 
+
+\begin{samepage}
+  \rule{\textwidth}{2pt}
+  \begin{algorithm}[H]\label{algo:bcfw_ssvm}
+   Let $\weightVec^{(0)}:=\weightVec^{(0)}_i := \bar{\weightVec}^{(0)} := 0$,\quad $\ell^{(0)} := \ell_i^{(0)} := 0$\;
+   Using $\oracleobj_i(\yVec,\weightVec^{(k)}) := \oracleexp$ \;
+
+   \For{$k = 0$ ... $K$}{
+     Pick $i$ at random in \{1, ... ,n \}\;
+     Solve $ \yVec^*_i := \argmax_{\yVec \in \ySpace} \oracleobj_i(\yVec,\weightVec^{(k)})$ \;
+     Let $\weightVec_s := \frac{1}{\lambda n} \jointFeatureMapAlone_i(\yVec^*_i)$ and $\ell_s := \frac{1}{n}\lossFn(\yVec_i^*)$\;
+     Let $\gamma := \frac{\lambda (\wv_i^{(k)} -\wv_s)T \wv^{(k)} - \ell_i^{(k)} + \ell_s}{\lambda ||\wv_i^{(k)} - \wv_s||^2}$ and clip to $[0,1]$\;
+     Update $\wv_i^{(k+1)} := (1 - \gamma)\wv_i^{(k)} + \gamma \wv_s$ and $\ell_i^{(k+1)} := (1 - \gamma) \ell_i^{(k)} + \gamma \ell_s$ \;
+     Update $\wv^{(K+1)} := \wv^{(k)} + \wv_i^{(k + 1)} - \wv_i^{(k)}$ and $\ell^{(k+1)} := \ell(k) + \ell_i^{(k+1)} -\ell_i^{(k)}$ \;
+     (Optionally: Update $\bar{\wv}^{(k + 1)} := \frac{k}{k+2}\bar{\wv}^{(k)}+\frac{2}{k+2}\wv^{(k+1)}$ )
+
+   }
+   \caption{ Block-Coordinate Frank-Wolfe Algorithm for SSVM}
+  \end{algorithm}
+  \hrulefill
+\end{samepage}
+
+
+where $\oracleobj_i(\yVec,\weightVec^{(k)}) := \oracleexp$ is the hing loss as used in  \ref{eq:maxOracle}. 
+
+Important for our Image segmentation application is that these BCFW convergence properties also hold if the max oracle is solved approximately. We simply require that the oracle gives a candidate direction $s_{(i)}$ with multiplicative accuracy $\nu \in (0,1]$ in terms of the duality gap on the current block \cite{lacoste2012block}. But with approximate oracles there is a slow down in convergence inversely proportional to the accuracy at $\frac{1}{\nu^2}$. We will utilize this property in order to quickly find an approximate maximal energy with variational methods. 
+
+\section{CRF Models}
+The following model describes the basis of how we construct the joint feature function $\jointFeatureMapAlone$ used in the SSVM formulation \ref{eq:maxOracle}. The SSVM is expressed as a quadratic programming problem hence the constraints must be linear. We express the energy function $E_w$ as an inner product of the features and the weight vector $w$. Our CRF energy is separated into its unary and pairwise portion. 
+\begin{align}
+D_i(y_i) = \langle \weightVec^D, \crfFeatMap^D_i(y_i) \rangle \\
+V_{ij}(y_i,y_j) = \langle \weightVec^V, \crfFeatMap^V_{i j}(y_i,y_j) \rangle
+\end{align}
+where $\crfFeatMap^D(y_i)$ and $\crfFeatMap^V_{i j}(y_i,y_j)$ are feature maps dependent on both the observed data and the labels. 
+\begin{align}
+\crfFeatMap^D(y_i) = (I(y_i= 1 )x_i^T, ..., I(y_i = K)x_i^T)^T, 
+\end{align}
+where $x_i$ is the feature vector associated with super pixel node $i$,  $K$ is the max label and $y_i \in \{ 1,...,K \}$. If $\weightVec^D$ is the column vector $[\weightVec^D_1,...,\weightVec^D_K]^T$ then the unary term of $E_w$ can be written as an inner product 
+\begin{align}
+D_i(y_i) = \langle \weightVec^D_{y_i},x_i\rangle,
+\end{align}
+Which gives the unary factor of node $i$ if it were labelled with $y_i$. The pairwise feature mapping can be defined similarly 
+\begin{align}
+  \crfFeatMap_{i j}^D(y_i,y_j) = (I(y_i = a, y_j = b))_{(a,b) \in \{ 1,...,K\}^2}
+  \end{align}
+    with parameters $\weightVec^V = (\weightsmall_{a b})_{(a,b) \in \{ 1,..., K\}^2 }$, then we can write the pairwise term as a simple indexing 
+  \begin{align}
+V_{i j} (y_i, y_j) = \weightsmall_{y_i y_j}
+\end{align}
+  This pairwise term defines the edge energy between adjacent node $i$ and $j$ as the learned cost in $\weightsmall$ of the transition between label $y_i$ and $y_j$. We now combine the unary and pairwise term by letting, $\weightVec = ((\weightVec^D)^T, (\weightVec^V)^T)^T$, $\crfFeatMapBig^D(Y) = \sum_{i \in \setOfVertecies} \crfFeatMap^D_i(y_i)$, $\crfFeatMapBig^V(Y) = \sum_{(i,j) \in \setOfEdges} \crfFeatMap^V_{i j} (y_i, y_j)$ and  $\crfFeatMapBig(Y) = [ \crfFeatMapBig^D(Y)^T, \crfFeatMapBig^V(Y)^T ]^T$ to define the total energy of a CRF as an inner product 
+\begin{align}\label{eq:crfenergy}
+E_{\weightVec} (Y) = \langle \weightVec, \crfFeatMapBig(Y) \rangle 
+\end{align}
+  where $\setOfVertecies$ is the set of vertices of super-pixels extracted from the input image and  $\setOfEdges$ is the set of edges. For a visualization see Figure \ref{fig:crfgraphic}. 
+\subsection{CRF model variations}\label{sec:crfvariations}
+Of the three CRF models we used to describe our image segmentation data, the unary model is the simplest and also the only one where we can in a reasonable amount of time compute an exact solution to the max-oracle problem. 
+\subsubsection{Unary CRF Model}\label{sec:unaryModel}
+In what we call the unary model each super pixel label node is simply connected to its unary potential which simplifies the energy function too
+\begin{align} \label{mdl:unary}
+E_{\weightVec^D} (Y) = \langle \weightVec^D , \crfFeatMapBig^D(Y) \rangle
+\end{align}
+\subsubsection{Pairwise CRF Model}\label{sec:pariwiseSimple}
+The pairwise model contains the same factors represented in the unary model but also includes the edge potentials as described in \ref{eq:crfenergy}
+\begin{align}
+E_{\weightVec} (Y) = \langle \weightVec, \crfFeatMapBig(Y) \rangle 
+\end{align}
+\subsubsection{Data-dependent Pairwise CRF Model}\label{sec:dataDep}
+The data-dependent pairwise model is an expansion of the pairwise model by redefining the pairwise energy as in 
+\begin{align}
+ \crfFeatMapBig^V(Y) = \sum_{(i,j) \in \setOfEdges} \crfFeatMap^{DV}_{i j}(y_i,yj)  \label{sec:dataDep}
+ \end{align}
+\begin{align}
+  \crfFeatMap^{DV}_{i j}(y_i,y_j) = (I(y_i = a, y_j = b) * \dataDepFn^I_{i j} )_{(a,b) \in \{ 1,...,K\}^2}   %could work on this definition its not quiet clear 
+\end{align} 
+\begin{align}
+\dataDepFn^I_{i j} =  (I(\dataDepFn(x_i,x_j)=c))_{c \in range(\dataDepFn)}
+\end{align}
+The function $\dataDepFn(x_i,x_j)$ is a binning function, with a small discrete range in $\mathbb{Z}$, it is used to give the pairwise term more flexibility to learn transition probabilities between labels under certain contexts. For examples of such functions and an analysis of the advantages of using a data dependent pairwise term see \cite{dataDepPaper1} and \cite{dataDepPaper2}.
+\begin{description}
+\item[Average Intensity Difference] For all neighbouring nodes $A$ and $B$ we calculate the average intensity (for RGB its also the grey-scale intensity) and simply take their squared difference. Quantiles are computed for the entire dataset and used to calculate fixed boundaries for binning the pairwise edges based on argument \inputArgs{numDataDepGraidBins}. 
+\item[ Average Intensity Difference scaled by one hop neighbourhood Standard Deviation ] For all neighbouring nodes $A$ and $B$ we calculate the difference in average intensity divided by the sum of variances of the one hope neighbourhoods of both nodes (for RGB its also the grey-scale intensity). The values are calculated for all neighbours in the training set and sorted to find quantile boundaries which result in equal mass being binned to each group. The number of bins depends on argument \inputArgs{numDataDepGraidBins}. 
+\item[ Average Intensity Difference scaled by two hop neighbourhood Standard Deviation ] For all neighbouring nodes $A$ and $B$ we calculate the difference in average intensity divided by the sum of variances of the two hope neighbourhoods of both nodes (for RGB its also the grey-scale intensity). The values are calculated for all neighbours in the training set and sorted to find quantile boundaries which result in equal mass being binned to each group. The number of bins depends on argument \inputArgs{numDataDepGraidBins}. 
+\item[ Uniqueness difference ] For all neighbouring nodes we calculate the uniqueness in its one hop neighbourhood by the number of neighbourhood standard deviations away from the neighbourhood mean the super-pixel average intensity is. For any two neighbouring nodes $A$ and $B$ we then compute the difference in this uniqueness measure. The values are calculated for all neighbours in the training set and sorted to find quantile boundaries which result in equal mass being binned to each group. The number of bins depends on argument \inputArgs{numDataDepGraidBins}. 
+\item[ Uniqueness in Opposite Neighbourhood ]  The internal super-pixel mean intensity $AvgI()$ and the average mean in its one hope neighbourhood $AvgNeigh()$ is calculated for all nodes. For every neighbouring nodes $A$ and $B$ we compute $(AvgI(A) - AvgNeigh(B))^2 + (AvgI(B) - AvgNeigh(A))^2$ as the total uniqueness of each node in the others neighbourhood. The values are calculated for all neighbours in the training set and sorted to find quantile boundaries which result in equal mass being binned to each group. The number of bins depends on argument \inputArgs{numDataDepGraidBins}. 
+
+\end{description}
+
+\section{Max Oracles}
+ The problem defined by  $ \argmax_{\yVec \in \ySpace} \oracleexp $, depending on the structure of $\yVect$, it can be intractable. When modelling the image segmentation problem with a pairwise CRF as in \ref{sec:dataDep} then a naive maximization by calculating the energy for all $\yVec \in \ySpace$ would be intractable because $|\ySpace| = R^{|\yVec|}$ where $R$ is the number of possible labels and $|\yVec|$ is equal the number of super-pixels. Hence we must intelligently approximate this max-oracle or use a simpler model. 
+\subsection{Naive Unary Max}\label{sec:unaryMax}
+When solving a model with unary potentials only, as in \ref{mdl:unary}, we can find an exact solution with $\mathcal{O}(K|\yVect)i|)$ by simply evaluating the loss-augmented potential for each super-pixel node and every possible label. This method can actually get rather good results if the unary term include features which have information about the surrounding space or the classes have repeating patterns in each super pixel significantly distinct from the other classes. 
+
+\subsubsection{Mean Field }\label{sec:meanField}
+All variational methods approximate a difficult to compute true distribution $P$ with a distribution with lower computational complexity $Q$ which is close to the true distribution, in terms of the Kullback–Leibler divergence. The distance between $P$ and $Q$ is defined as $D_{KL}(Q||P) = \sum_{\bm{Z}} Q(\bm{Z}) \log \frac{Q(\bm{Z})}{P(\bm{Z}|\bm{X})}$, where $\bm{Z} $ are some unobserved variables and $\bm{X}$ is a dataset. In the case of our image segmentation problem $\bm{Z}$ are the hidden labels $\yVec$ and the data is $\xSpace$.
+One of these variational methods is the Mean Field inference where in a computationally feasible $Q$ is constructed as a product of individual distributions for a subset of the unobserved variables i.e. $Q(\bm{Z}) = \prod_{i=1}^M q_i(\bm{Z}_i|X)$. In our image segmentation problem we could model the pairwise CRF as a series of Exponential distributions. The parameters of $Q$ can be quickly learned from the data with variational calculus. When considering the CRF visualization of Figure \ref{fig:crfgraphic}, mean field would prune all edges between the labels, but then find the distributions of the individual $q_i$ iteratively as a function of all other $q_i$.
+\subsection{Loopy Belief Propagation}\label{sec:loopybp}
+The Sum-Product algorithm is a message passing algorithm used to find marginals on Bayesian networks which can be expressed as trees \cite{sumProductAlgo}. We can transform a Bayesian network if it is a tree into a bipartite factor graph where each variable is a class variable in the Bayesian network and each factor is some probabilistic relation between variables (and hence has an edge to all those variables). If label a bipartite factor graph with factors $f_A, f_B, f_C ... = F$ and variables $x_1, x_2, x_3, x_4 ... = X $. Then we can quickly see that the marginal probability of a leaf is independent of the remaining graph variables given all factors it is connected too. The Sum-Product Algorithm then computes the marginal probabilities by applying the following rules to each node in the factor graph starting with the root. 
+\begin{description}
+\item[Product Rule]: At each variable node take the product of all its descendant
+\item[Sum-product Rule] : At each factor node $i$ take the product of $f_i$ all its descendants and then sum over all variables except for the uncompleted parent node.
+\end{description}
+More precisely we can define the messages: 
+\begin{align}
+\shortintertext{Variable to factor message: } 
+\mu_{x \rightarrow f}(f_i) = \prod_{h \in n(x)  \backslash f_i } \mu_{h \rightarrow x} \\
+\shortintertext{factor to variable message: } 
+\quad \mu_{f \rightarrow x}(x_i) = \sum_{x_j \in X \backslash x_i } ( f(x_j) \prod_{ y \in n(f) \backslash x_i } \mu_{y \rightarrow f(y)})
+\end{align}
+Where $\mu$ are types of messages, \textbackslash\{$a$\} define the set operator of excluding $a$, $n(a)$ is the set of neighbours of $a$. 
+Using the Sum-Product algorithm one can compute all marginals in $\mathcal{O}(n^2)$ and with some additional rules recomputing factors can be avoided. 
+\par
+Loopy Belief Propagation is a extension on the Sum-Product algorithm which simply applies the same rules to a loopy graph in each iteration ignoring that it is actually not a tree. But in practice it has shown good results \cite{murphy1999loopy}. We expect good results on our super-pixel graph because the direct connections are by far the most important and do not depend on much more than their adjacent nodes. 
+%
+%
+%
+%
+%
+%
+%
+%
+%
+%
+%
+%
+%
